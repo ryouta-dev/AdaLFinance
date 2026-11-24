@@ -3,12 +3,12 @@ import { availableCases, catalog } from '../content/catalog.mjs';
 import { team } from '../content/team.mjs';
 import { matchesKey, readAnswers } from './lesson.mjs';
 import { customCases, teamSubmissions, userAttempts } from './storage.mjs';
-import { digest, people, signIn } from './auth.mjs';
+import { digest, people, scopeFromGroup, signIn } from './auth.mjs';
 import { parseCase } from './authoring.mjs';
 import { exportResults } from './analytics.mjs';
 
 const idPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
-const roster = user => Object.values(people).filter(person => person.role === 'student' && person.group === user.group);
+const roster = user => Object.values(people).filter(person => person.role === 'student' && person.group === (user.classGroup ?? user.group));
 const examples = {
   flow: 'lesson', companyId: 'adal-market', caseId: 'cash-check',
   title: { ru: 'Проверка кассы', kk: 'Кассаны тексеру' },
@@ -45,7 +45,9 @@ export async function readInvite(db, token) {
   const key = await digest(token);
   const row = await db.prepare('SELECT * FROM qr_invites WHERE digest = ? AND redeemed_at IS NULL AND expires > ?').bind(key, Date.now()).first();
   const person = row && people[row.username];
-  return person?.role === 'student' && person.group === row.group_id ? { ...row, person } : null;
+  if (person?.role !== 'student') return null;
+  const scope = scopeFromGroup(row.group_id, person.group);
+  return scope === null ? null : { ...row, person, scope };
 }
 
 export async function join(request, db, token, ui, page, redirect) {
@@ -57,7 +59,7 @@ export async function join(request, db, token, ui, page, redirect) {
     .bind(time, invite.digest, time).run();
   if (!update.meta.changes) return show();
   try {
-    return redirect('/', await signIn(db, request, invite.person));
+    return redirect('/', await signIn(db, request, invite.person, invite.scope));
   } catch (error) {
     await db.prepare('UPDATE qr_invites SET redeemed_at = NULL WHERE digest = ? AND redeemed_at = ?').bind(invite.digest, time).run();
     throw error;

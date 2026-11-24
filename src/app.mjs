@@ -1,7 +1,7 @@
 import { latestCase } from '../content/catalog.mjs';
 import { lessonSnapshot } from '../content/lessons.mjs';
 import { caseKey } from '../content/academy.mjs';
-import { cookie, currentUser, digest, people, setCookie, signIn, signOut } from './auth.mjs';
+import { cookie, currentUser, demoScope, digest, people, setCookie, signIn, signOut } from './auth.mjs';
 import { applyAction, openShift } from './shift.mjs';
 import { views } from './views.mjs';
 import { lessonViews } from './lesson-views.mjs';
@@ -15,9 +15,11 @@ import { cupCases } from './analytics.mjs';
 
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const baseHeaders = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
-const redirect = (path, session) => new Response(null, { status: 303, headers: {
-  ...baseHeaders, location: path, ...(session ? { 'set-cookie': session } : {})
-} });
+function redirect(path, session) {
+  const headers = new Headers({ ...baseHeaders, location: path });
+  for (const value of [session].flat()) if (value) headers.append('set-cookie', value);
+  return new Response(null, { status: 303, headers });
+}
 
 async function form(request, limit = 4096) {
   if (!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) return null;
@@ -45,6 +47,7 @@ async function fetch(request, env) {
   const { pathname, origin, search, searchParams } = new URL(request.url);
   if (request.method === 'GET' && pathname.startsWith('/assets/')) return env.asset(pathname);
   const db = env.DB;
+  const publicDemo = env.PUBLIC_DEMO === '1';
   const lang = cookie(request, 'adal_lang') === 'kk' ? 'kk' : 'ru';
   const view = views(lang);
   const lesson = lessonViews(lang, view);
@@ -71,17 +74,18 @@ async function fetch(request, env) {
 
     if (pathname === '/login' && post) {
       const fields = await form(request);
-      const name = fields?.get('username')?.trim().toLowerCase();
+      const profile = publicDemo ? fields?.get('profile') : null;
+      const name = profile ?? fields?.get('username')?.trim().toLowerCase();
       const account = Object.hasOwn(people, name) ? people[name] : null;
-      if (!account || fields.get('password') !== account.password) return page('loginTitle', view.login(true), 401);
-      return redirect(account.role === 'teacher' ? '/teacher' : '/', await signIn(db, request, account));
+      if (!account || (!profile && fields?.get('password') !== account.password)) return page('loginTitle', view.login(true, publicDemo), 401);
+      return redirect(account.role === 'teacher' ? '/teacher' : '/', await signIn(db, request, account, publicDemo ? demoScope(request) : ''));
     }
     if (pathname === '/logout' && post) return redirect('/login', await signOut(db, request));
 
     const invitation = pathname.match(/^\/enter\/([a-f0-9-]+)$/);
     if (invitation) return await join(request, db, invitation[1], ui, page, redirect);
     user = await currentUser(db, request);
-    if (!user) return pathname === '/login' ? page('loginTitle', view.login(false)) : redirect('/login');
+    if (!user) return pathname === '/login' ? page('loginTitle', view.login(false, publicDemo)) : redirect('/login');
     if (pathname === '/login' || (pathname === '/' && user.role === 'teacher')) return redirect(user.role === 'teacher' ? '/teacher' : '/');
 
     const teacher = pathname === '/teacher' || pathname.startsWith('/teacher/');
@@ -102,7 +106,7 @@ async function fetch(request, env) {
       const registerFlow = config.flow === 'register';
       if (!post) {
         if (cup) {
-          const current = await db.prepare('SELECT id FROM attempts WHERE id = ? AND owner = ?').bind(await cupId(user, config), user.username).first();
+          const current = await db.prepare('SELECT id FROM attempts WHERE id = ? AND owner = ? AND group_id = ?').bind(await cupId(user, config), user.username, user.group).first();
           if (current) return redirect('/attempt/' + current.id);
         }
         if (registerFlow) return page('cases', register.brief(config));
@@ -124,9 +128,8 @@ async function fetch(request, env) {
     const attemptMatch = pathname.match(/^\/(?:teacher\/)?attempt\/([a-f0-9-]+)$/);
     if (!attemptMatch || !uuid.test(attemptMatch[1])) return error('missing', 404);
     const id = attemptMatch[1];
-    const clause = teacher ? 'group_id' : 'owner';
-    const row = await db.prepare(`SELECT * FROM attempts WHERE id = ? AND ${clause} = ?`)
-      .bind(id, teacher ? user.group : user.username).first();
+    const row = teacher ? await db.prepare('SELECT * FROM attempts WHERE id = ? AND group_id = ?').bind(id, user.group).first()
+      : await db.prepare('SELECT * FROM attempts WHERE id = ? AND group_id = ? AND owner = ?').bind(id, user.group, user.username).first();
     if (!row) return error('missing', 404);
     const attempt = deserialize(row);
     const lessonFlow = attempt.config.flow === 'lesson';

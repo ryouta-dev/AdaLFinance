@@ -7,7 +7,7 @@
   },
   "scripts": {
     "start": "node local.mjs",
-    "test": "node --test",
+    "test": "node --test test/*.test.mjs",
     "build": "node scripts/build.mjs"
   },
   "devDependencies": {

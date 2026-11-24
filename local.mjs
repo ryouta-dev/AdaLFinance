@@ -38,8 +38,11 @@ createServer(async (incoming, outgoing) => {
     const request = new Request(new URL(incoming.url, `http://${incoming.headers.host || `localhost:${port}`}`), {
       method: incoming.method, headers: incoming.headers, body
     });
-    const response = await app.fetch(request, { DB, asset, OPENAI_API_KEY: process.env.OPENAI_API_KEY, OPENAI_MODEL: process.env.OPENAI_MODEL });
-    outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+    const response = await app.fetch(request, { DB, asset, OPENAI_API_KEY: process.env.OPENAI_API_KEY, OPENAI_MODEL: process.env.OPENAI_MODEL, PUBLIC_DEMO: process.env.ADAL_PUBLIC_DEMO });
+    const headers = Object.fromEntries(response.headers);
+    const cookies = response.headers.getSetCookie();
+    if (cookies.length) headers['set-cookie'] = cookies;
+    outgoing.writeHead(response.status, headers);
     outgoing.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
     console.error(error);

@@ -52,7 +52,7 @@ export function platformViews(lang, base) {
         ${actionLink(tx('bank'), '/bank', true)}</div></div>
       <figure><img src="/assets/city.jpg" alt="" fetchpriority="high"></figure></article>`;
     const progressPane = `<aside class="city-aside">
-      <div class="passport"><h2>${escape(user.name)}</h2><p>${tx('group')} <strong>${escape(user.group)}</strong></p>
+      <div class="passport"><h2>${escape(user.name)}</h2><p>${tx('group')} <strong>${escape(user.classGroup ?? user.group)}</strong></p>
         <dl><div><dt>${t('rank')}</dt><dd>${copy(record.rank.name)}</dd></div>
         <div><dt>${t('verified')}</dt><dd>${visited.size} / ${enterprises.length}</dd></div></dl>
         ${progress(visited.size, enterprises.length)}
@@ -131,7 +131,7 @@ export function platformViews(lang, base) {
         return value.maximum ? value.earned + ' / ' + value.maximum : '—';
       }), stats.diagnosis ? `<a href="${attemptURL(stats.diagnosis, true)}">${tx('details')}</a>` : '—'];
     });
-    return `<div class="page-heading"><div><h1>${tx('analytics')}</h1><p class="lead">${tx('group')} ${escape(user.group)}</p></div>${actionLink(t('download'), '/teacher/export')}</div>
+    return `<div class="page-heading"><div><h1>${tx('analytics')}</h1><p class="lead">${tx('group')} ${escape(user.classGroup ?? user.group)}</p></div>${actionLink(t('download'), '/teacher/export')}</div>
       <section class="report-page"><h2>${t('groupMatrix')}</h2>${table(t('groupMatrix'), [t('studentName'), t('rank'), ...ids.map(id => copy(skills[id])), t('diagnostics')], rows)}</section>
       <section class="archive"><h2>${tx('attempts')}</h2>${base.list(attempts, true)}</section>`;
   }

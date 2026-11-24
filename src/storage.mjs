@@ -1,9 +1,10 @@
 export const deserialize = row => ({ ...row, state: JSON.parse(row.state), config: JSON.parse(row.config) });
 
 export async function userAttempts(db, user, group = user.role === 'teacher') {
-  const column = group ? 'group_id' : 'owner';
-  const rows = await db.prepare('SELECT * FROM attempts WHERE ' + column + ' = ? ORDER BY started_at DESC, id DESC')
-    .bind(group ? user.group : user.username).all();
+  const query = 'SELECT * FROM attempts WHERE group_id = ?';
+  const order = ' ORDER BY started_at DESC, id DESC';
+  const rows = group ? await db.prepare(query + order).bind(user.group).all()
+    : await db.prepare(query + ' AND owner = ?' + order).bind(user.group, user.username).all();
   return rows.results.map(deserialize);
 }
 

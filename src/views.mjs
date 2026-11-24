@@ -44,11 +44,13 @@ export function views(lang) {
       </header><main id="main" class="page" tabindex="-1">${body}</main></body></html>`;
   }
 
-  function login(error) {
+  function login(error, publicDemo) {
     return `<div class="login-grid"><section class="login-feature"><img src="/assets/city.jpg" alt="" fetchpriority="high">
       <div><span class="feature-label">${tx('simulator')}</span><strong>ADAL City</strong></div></section>
       <section class="login-form"><h1>${tx('loginTitle')}</h1><p class="lead">${tx('loginLead')}</p>
         ${error ? `<p class="notice alert" role="alert">${tx('invalidLogin')}</p>` : ''}
+        ${publicDemo ? `<form method="post" action="/login" class="demo-launch"><button class="button" type="submit" name="profile" value="student">${tx('demoStudent')}</button>
+          <button class="button secondary" type="submit" name="profile" value="teacher">${tx('demoTeacher')}</button></form><p class="muted caption">${tx('demoIsolation')}</p>` : ''}
         <form method="post" action="/login" class="stack">
           <label>${tx('login')}<input name="username" autocomplete="username" required maxlength="40"></label>
           <label>${tx('password')}<input name="password" type="password" autocomplete="current-password" required maxlength="80"></label>${button('signIn')}
@@ -67,7 +69,7 @@ export function views(lang) {
   function cabinet(user, cases, attempts) {
     const teacher = user.role === 'teacher';
     const heading = teacher ? 'teacherHome' : 'cases';
-    return `<div class="page-heading"><div><h1>${tx(heading)}</h1><p class="lead">${escape(user.name)}</p></div><span class="group-label">${tx('group')} <strong>${escape(user.group)}</strong></span></div>
+    return `<div class="page-heading"><div><h1>${tx(heading)}</h1><p class="lead">${escape(user.name)}</p></div><span class="group-label">${tx('group')} <strong>${escape(user.classGroup ?? user.group)}</strong></span></div>
       ${teacher ? '' : `<div class="case-list">${cases.map(config => {
         const active = attempts.find(attempt => !attempt.finished_at && attempt.config.companyId === config.companyId && attempt.config.caseId === config.caseId);
         return `<article class="case-hero"><div class="case-copy"><p class="company">${receiptIcon}${escape(config.company)}</p>

@@ -79,6 +79,7 @@ svg { flex: none; }
 .login-form { padding: clamp(1.25rem, 4vw, 3.25rem); }
 .login-form h1 { font-size: clamp(1.8rem, 3vw, 2.55rem); }
 .login-form .stack { margin-top: 1.35rem; }
+.demo-launch { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0 .5rem; }
 .demo { border-top: 1px solid var(--line); margin-top: 1.45rem; padding-top: .55rem; color: var(--forest); }
 .demo dl { margin: .6rem 0 0; }
 .demo dl div { display: flex; flex-wrap: wrap; gap: .25rem 1rem; font-size: .9rem; padding-block: .2rem; }

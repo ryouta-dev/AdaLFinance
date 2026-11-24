@@ -20,7 +20,7 @@ await build({
         headers: { 'content-type': type, 'cache-control': 'public, max-age=300' }
       });
     }
-    export default { fetch: (request, env) => app.fetch(request, { DB: env.DB, asset, OPENAI_API_KEY: env.OPENAI_API_KEY, OPENAI_MODEL: env.OPENAI_MODEL }) };
+    export default { fetch: (request, env) => app.fetch(request, { DB: env.DB, asset, OPENAI_API_KEY: env.OPENAI_API_KEY, OPENAI_MODEL: env.OPENAI_MODEL, PUBLIC_DEMO: env.ADAL_PUBLIC_DEMO }) };
   ` },
   bundle: true, format: 'esm', target: 'es2022', outfile: fileURLToPath(new URL('dist/server/index.js', root))
 });

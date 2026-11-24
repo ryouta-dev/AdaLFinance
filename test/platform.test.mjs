@@ -266,3 +266,36 @@ test('the connected mentor only receives task context and never determines a gra
   assert.equal(state.events.at(-1).mode, 'model');
   assert.equal(lessonResults(config, state)[0].status, 'pending');
 });
+
+test('public role buttons keep visitors in separate demo workspaces and QR joins the intended workspace', async t => {
+  const sim = await simulator(t);
+  assert.equal((await sim.request('/login', '', { profile: 'student' })).status, 401);
+  sim.env.PUBLIC_DEMO = '1';
+  const cookies = response => Object.fromEntries(response.headers.getSetCookie()
+    .map(value => value.split(';')[0]).map(value => value.split('=')));
+  const browser = data => Object.entries(data).map(([key, value]) => key + '=' + value).join('; ');
+  const profile = async (role, existing) => {
+    const response = await sim.request('/login', browser(existing ?? {}), { profile: role });
+    assert.equal(response.status, 303);
+    return cookies(response);
+  };
+  const first = await profile('student');
+  const outsider = await profile('student');
+  assert.ok(first.adal_demo);
+  assert.notEqual(first.adal_demo, outsider.adal_demo);
+  const attempt = await sim.start('adal-market/shift-close', browser(first));
+  assert.equal((await sim.request(attempt, browser(outsider))).status, 404);
+  assert.equal((await sim.request(attempt, browser({ ...first, adal_demo: outsider.adal_demo }))).status, 200);
+  await sim.request('/logout', browser(first), {});
+  const teacher = await profile('teacher', { adal_demo: first.adal_demo });
+  const teacherHome = await (await sim.request('/teacher', browser(teacher))).text();
+  assert.ok(teacherHome.includes('/teacher' + attempt));
+  assert.ok(!teacherHome.includes(first.adal_demo));
+  const anotherTeacher = await profile('teacher', { adal_demo: outsider.adal_demo });
+  assert.equal((await sim.request('/teacher' + attempt, browser(anotherTeacher))).status, 404);
+  const qr = await sim.request('/teacher/qr', browser(teacher), { student: 'student2' });
+  assert.equal(qr.status, 303);
+  const visitor = await sim.request(qr.headers.get('location').replace('/teacher/qr/', '/enter/'), '', {});
+  assert.equal(visitor.status, 303);
+  assert.equal(cookies(visitor).adal_demo, first.adal_demo);
+});

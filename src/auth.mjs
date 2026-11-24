@@ -19,13 +19,29 @@ export async function digest(token) {
   return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function signIn(db, request, user) {
+const scopePattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+
+export function demoScope(request) {
+  const existing = cookie(request, 'adal_demo');
+  return scopePattern.test(existing ?? '') ? existing : crypto.randomUUID();
+}
+
+export function scopeFromGroup(group, classGroup) {
+  if (group === classGroup) return '';
+  if (!group.startsWith(classGroup + '/')) return null;
+  const scope = group.slice(classGroup.length + 1);
+  return scopePattern.test(scope) ? scope : null;
+}
+
+export async function signIn(db, request, user, scope = '') {
   const token = crypto.randomUUID() + crypto.randomUUID();
   const duration = 43200;
   const now = Date.now();
   await db.prepare('DELETE FROM sessions WHERE expires <= ?').bind(now).run();
-  await db.prepare('INSERT INTO sessions VALUES (?, ?, ?)').bind(await digest(token), user.username, now + duration * 1000).run();
-  return setCookie(request, 'adal_session', token, duration);
+  const identity = scope ? user.username + '/' + scope : user.username;
+  await db.prepare('INSERT INTO sessions VALUES (?, ?, ?)').bind(await digest(token), identity, now + duration * 1000).run();
+  const session = setCookie(request, 'adal_session', token, duration);
+  return scope ? [session, setCookie(request, 'adal_demo', scope, 604800)] : session;
 }
 
 export async function currentUser(db, request) {
@@ -33,7 +49,12 @@ export async function currentUser(db, request) {
   if (!token || !/^[a-f0-9-]{72}$/.test(token)) return null;
   const row = await db.prepare('SELECT username FROM sessions WHERE token = ? AND expires > ?')
     .bind(await digest(token), Date.now()).first();
-  return row && people[row.username];
+  if (!row) return null;
+  const [name, scope] = row.username.split('/');
+  const person = Object.hasOwn(people, name) ? people[name] : null;
+  if (!person || !scope) return person;
+  if (!scopePattern.test(scope)) return null;
+  return { ...person, classGroup: person.group, group: person.group + '/' + scope };
 }
 
 export async function signOut(db, request) {
