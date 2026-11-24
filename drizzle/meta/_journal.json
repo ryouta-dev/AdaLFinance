@@ -1,0 +1,8 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    { "idx": 0, "version": "6", "when": 1795546800000, "tag": "0001_adal", "breakpoints": true },
+    { "idx": 1, "version": "6", "when": 1795554900000, "tag": "0002_platform", "breakpoints": true }
+  ]
+}

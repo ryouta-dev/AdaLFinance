@@ -1,0 +1,6 @@
+.data/
+dist/
+output/
+.playwright-cli/
+.openai/*.local.json
+node_modules/
